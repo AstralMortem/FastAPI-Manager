@@ -1,5 +1,5 @@
 import os
-from fastapi_manager.core import get_app
+from fastapi_manager.core.app import get_app
 
 os.environ.setdefault("SETTINGS_MODULE", '{{ project_name }}.settings')
 

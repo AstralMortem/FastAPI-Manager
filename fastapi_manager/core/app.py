@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi_manager.conf import settings
 from fastapi_manager.utils.decorators import singleton
+import fastapi_manager
 
 
 @asynccontextmanager
@@ -28,4 +29,5 @@ class Application:
 
 
 def get_app(lifespan=lifespan):
+    fastapi_manager.setup()
     return Application(lifespan).get_app()

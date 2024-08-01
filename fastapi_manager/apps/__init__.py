@@ -1,3 +1,3 @@
-from .registry import Apps
+from .registry import apps, AppConfig
 
-__all__ = ["Apps"]
+__all__ = ["apps", "AppConfig"]
