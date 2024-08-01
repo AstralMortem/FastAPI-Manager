@@ -7,6 +7,8 @@ import fastapi_manager
 from fastapi_manager.core.managment.handlers import CreateProject, StartApp
 from fastapi_manager.conf import settings
 
+from .test_project_creating import _delete_folders
+
 APP_NAME = "test_app"
 PROJECT_NAME = "test_projects"
 
@@ -38,4 +40,17 @@ def test_app_creation():
 
     app.execute()
 
-    assert app._get_destination().exists() == True
+    assert app._get_destination().exists()
+
+    assert [
+        "migrations",
+        "__init__.py",
+        "apps.py",
+        "models.py",
+        "repositories.py",
+        "routers.py",
+        "schemas.py",
+        "services.py",
+    ].sort() == os.listdir(app._get_destination()).sort()
+
+    _delete_folders(project._get_destination())

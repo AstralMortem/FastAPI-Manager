@@ -1,4 +1,5 @@
 from email.policy import default
+from typing import Generic
 from sqlmodel import SQLModel
 from .mixins import CommonMixin, _ID
 
