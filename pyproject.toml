@@ -14,6 +14,9 @@ alembic = "^1.13.2"
 fastapi = "^0.111.1"
 
 
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.2"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

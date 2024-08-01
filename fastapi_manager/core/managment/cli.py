@@ -1,8 +1,10 @@
 import typer
 from pathlib import Path
-from .handlers import CreateProject
+from .handlers import CreateProject, StartApp
+from fastapi_cli.cli import app as fastapi_cli
 
-cli_app = typer.Typer()
+cli_app = typer.Typer(rich_markup_mode="rich")
+cli_app.add_typer(fastapi_cli, name="server")
 
 
 @cli_app.command()
@@ -13,7 +15,8 @@ def startproject(name: str, path: Path = None):
 
 @cli_app.command()
 def startapp(name):
-    print("Hello world")
+    new_app = StartApp(name)
+    new_app.execute()
 
 
 if __name__ == "__main__":

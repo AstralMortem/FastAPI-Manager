@@ -47,15 +47,9 @@ class TemplateHandler:
 
         if self.destination_path == ".":
             new_path = Path(".").joinpath("/")
-            if len(new_path.iterdir()) > 0:
-                raise Exception("Folder is not empty")
-            if not new_path.exists():
-                raise Exception("Folder does not exist")
 
         if self.destination_path is None:
             new_path = Path(".").joinpath(self.new_template_name)
-            if new_path.exists():
-                raise Exception("Folder already exist")
 
         return new_path.absolute()
 
@@ -111,6 +105,9 @@ class StartApp(TemplateHandler):
             "{{ camel_case_app_name }}": self._format_to_camel_case(),
         }
 
+    def _get_destination(self):
+        return Path(self.destination_path).joinpath(self.new_template_name).absolute()
+
     def _format_to_camel_case(self):
         return "".join(map(lambda x: x.capitalize(), self.new_template_name.split("_")))
 
@@ -141,5 +138,5 @@ class StartApp(TemplateHandler):
                     dest_file = os.path.join(dest_dir, dest_filename)
 
                     # Copy the file to the destination folder
-                    shutil.copy(src_file, dest_file)
+                    new_destination = shutil.copy(src_file, dest_file)
                     self._replace_text_in_files(new_destination)
