@@ -1,6 +1,6 @@
 import importlib
 import os
-from fastapi_manager.conf import global_settings
+from fastapi_manager.conf import _global_settings
 from fastapi_manager.utils.functional import empty, LazyObject
 
 # Use this to define which settings should be list or tupple
@@ -80,9 +80,9 @@ class LazySettings(LazyObject):
 class Settings:
     def __init__(self, settings_module):
         # update this dict from global settings (but only for ALL_CAPS settings)
-        for setting in dir(global_settings):
+        for setting in dir(_global_settings):
             if setting.isupper():
-                setattr(self, setting, getattr(global_settings, setting))
+                setattr(self, setting, getattr(_global_settings, setting))
 
         # store the settings module in case someone later cares
         self.SETTINGS_MODULE = settings_module
