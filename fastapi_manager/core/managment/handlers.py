@@ -106,6 +106,13 @@ class StartApp(TemplateHandler):
         super().__init__(name, *args, **kwargs)
         self.template_prefix = "[app_name]"
         self.destination_path = settings.BASE_DIR
+        self.replacement = {
+            "{{ app_name }}": self.new_template_name,
+            "{{ camel_case_app_name }}": self._format_to_camel_case(),
+        }
+
+    def _format_to_camel_case(self):
+        return "".join(map(lambda x: x.capitalize(), self.new_template_name.split("_")))
 
     def _action(self):
         dest_folder = self._get_destination()
@@ -135,3 +142,4 @@ class StartApp(TemplateHandler):
 
                     # Copy the file to the destination folder
                     shutil.copy(src_file, dest_file)
+                    self._replace_text_in_files(new_destination)
