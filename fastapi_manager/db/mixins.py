@@ -26,11 +26,5 @@ class TimestampMixin(BaseModel):
     )
 
 
-class CommonMixin(Generic[_ID], TimestampMixin):
-    def __getattribute__(self, name: str) -> Any:
-        if name == "id":
-            if isinstance(_ID, uuid.UUID):
-                return UUIDPrimaryKey.id
-            else:
-                return IntPrimaryKey.id
-        return super().__getattribute__(name)
+class DefaultMixin(UUIDPrimaryKey, TimestampMixin):
+    pass

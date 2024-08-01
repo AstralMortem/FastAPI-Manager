@@ -1,8 +1,9 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi_manager.conf import settings
 from fastapi_manager.utils.decorators import singleton
 import fastapi_manager
+from fastapi_manager.routers.base import resolve_urls
 
 
 @asynccontextmanager
@@ -27,7 +28,17 @@ class Application:
     def get_app(self):
         return self._app
 
+    def resolve_main_urls(self):
+        for router in resolve_urls():
+            self.include_router(router)
+
+    def include_router(self, router: APIRouter):
+        self._app.include_router(router)
+
 
 def get_app(lifespan=lifespan):
     fastapi_manager.setup()
-    return Application(lifespan).get_app()
+    application = Application(lifespan)
+    application.resolve_main_urls()
+
+    return application.get_app()

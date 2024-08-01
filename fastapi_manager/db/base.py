@@ -1,12 +1,11 @@
-from email.policy import default
-from typing import Generic
+from typing import ClassVar, Tuple
 from sqlmodel import SQLModel
-from .mixins import CommonMixin, _ID
+from .mixins import DefaultMixin
 
 
-class BaseTable(Generic[_ID], SQLModel, CommonMixin[_ID], default=True):
-    repr_cols_num = 3
-    repr_cols = tuple()
+class BaseTable(SQLModel, DefaultMixin, table=True):
+    repr_cols_num: ClassVar[int] = 3
+    repr_cols: ClassVar[Tuple] = tuple()
 
     def __repr__(self):
         """Relationships не используются в repr(), т.к. могут вести к неожиданным подгрузкам"""
