@@ -1,5 +1,5 @@
-from fastapi_manager.core import managment
+from fastapi_manager.core import cli
 
 
 if __name__ == "__main__":
-    managment.cli_app()
+    cli.cli()

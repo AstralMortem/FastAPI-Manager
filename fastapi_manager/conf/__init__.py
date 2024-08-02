@@ -144,30 +144,11 @@ class UserSettingsHolder:
 
 class Settings:
     def __init__(self, settings_module):
-        # update this dict from global settings (but only for ALL_CAPS settings)
-        for setting in dir(_global_settings):
-            if setting.isupper():
-                setattr(self, setting, getattr(_global_settings, setting))
-
-        # store the settings module in case someone later cares
+        self._explicit_settings = set()
         self.SETTINGS_MODULE = settings_module
 
-        mod = importlib.import_module(self.SETTINGS_MODULE)
-
-        tuple_settings = TUPLE_SETTINGS
-        self._explicit_settings = set()
-        for setting in dir(mod):
-            if setting.isupper():
-                setting_value = getattr(mod, setting)
-
-                if setting in tuple_settings and not isinstance(
-                    setting_value, (list, tuple)
-                ):
-                    raise Exception(
-                        "The %s setting must be a list or a tuple." % setting
-                    )
-                setattr(self, setting, setting_value)
-                self._explicit_settings.add(setting)
+        self._load_global_settings()
+        self._load_local_settings()
 
     def is_overridden(self, setting):
         return setting in self._explicit_settings
@@ -177,6 +158,31 @@ class Settings:
             "cls": self.__class__.__name__,
             "settings_module": self.SETTINGS_MODULE,
         }
+
+    def _load_global_settings(self):
+        for setting in dir(global_settings):
+            if setting.isupper():
+                setattr(self, setting, getattr(global_settings, setting))
+
+    def _load_local_settings(self):
+        mod = self._get_local_settings_module()
+        for setting in dir(mod):
+            if setting.isupper():
+                setting_value = getattr(mod, setting)
+                self._validate_special_settings(setting, setting_value)
+                setattr(self, setting, setting_value)
+                self._explicit_settings.add(setting)
+
+    def _validate_special_settings(self, key, value):
+        if key in TUPLE_SETTINGS and not isinstance(value, (list, tuple)):
+            raise Exception("The %s setting must be a list or a tuple." % key)
+
+    def _get_local_settings_module(self):
+        try:
+            mod = importlib.import_module(self.SETTINGS_MODULE)
+            return mod
+        except ImportError as error:
+            raise Exception(f"Module '{error.name}' does not exists")
 
 
 settings = LazySettings()
