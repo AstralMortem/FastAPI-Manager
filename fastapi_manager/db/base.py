@@ -1,9 +1,9 @@
 from typing import ClassVar, Tuple
-from sqlmodel import SQLModel
-from .mixins import DefaultMixin
+from sqlalchemy.orm import DeclarativeBase
+from .mixins import CommonMixin
 
 
-class BaseTable(SQLModel, DefaultMixin, table=True):
+class BaseTable(CommonMixin, DeclarativeBase):
     repr_cols_num: ClassVar[int] = 3
     repr_cols: ClassVar[Tuple] = tuple()
 

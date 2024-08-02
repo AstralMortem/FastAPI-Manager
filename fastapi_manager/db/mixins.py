@@ -1,30 +1,21 @@
-import datetime
-from typing import Any, Generic, Optional, TypeVar
-import uuid
-from pydantic import BaseModel
-from sqlalchemy import Column, DateTime, func
-from sqlmodel import Field
-
-_ID = TypeVar("_ID")
+from datetime import datetime
+from sqlalchemy import func
+from sqlalchemy.orm import Mapped, mapped_column
+from uuid import UUID, uuid4
 
 
-class IntPrimaryKey(BaseModel):
-    id: int | None = Field(default=None, primary_key=True)
+class UUIDPrimaryKey:
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4())
 
 
-class UUIDPrimaryKey(BaseModel):
-    id: uuid.UUID | None = Field(default_factory=uuid.uuid4, primary_key=True)
+class IntPrimaryKey:
+    id: Mapped[int] = mapped_column(primary_key=True)
 
 
-class TimestampMixin(BaseModel):
-    created_at: datetime.datetime | None = Field(
-        sa_column=Column(DateTime, nullable=True, server_default=func.now())
-    )
-
-    updated_at: datetime.data | None = Field(
-        sa_column=Column(DateTime, nullable=True, onupdate=func.now())
-    )
+class TimestampMixin:
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(onupdate=func.now())
 
 
-class DefaultMixin(UUIDPrimaryKey, TimestampMixin):
+class CommonMixin(UUIDPrimaryKey, TimestampMixin):
     pass

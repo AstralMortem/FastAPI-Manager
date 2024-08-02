@@ -1,6 +1,6 @@
 import contextlib
 from typing import Any, AsyncGenerator, AsyncIterator
-from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,

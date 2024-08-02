@@ -101,4 +101,7 @@ class NewAppHandler(TemplateHandler):
     template_placeholder: str = "{{app_name}}"
 
     def _check_dest_path(self, dest: Path):
+        return_path = dest.joinpath(self.name)
+        if self.name in os.listdir(dest):
+            raise Exception("App already exists")
         return dest.joinpath(self.name)
