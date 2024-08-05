@@ -35,13 +35,19 @@ class Settings:
                 setattr(self, setting, getattr(global_settings, setting))
 
     def _load_local_settings(self):
-        mod = importlib.import_module(self.SETTINGS_MODULE)
+        mod = self._load_local_module()
         for setting in dir(mod):
             if setting.isupper():
                 setting_value = getattr(mod, setting)
                 self._validate_special_settings(setting, setting_value)
                 setattr(self, setting, setting_value)
                 self._explicit_settings.add(setting)
+
+    def _load_local_module(self):
+        try:
+            return importlib.import_module(self.SETTINGS_MODULE)
+        except:
+            raise Exception(f"{self.SETTINGS_MODULE} module, does not exists")
 
     def _validate_special_settings(self, key, value):
         if key in TUPLE_SETTINGS and not isinstance(value, (list, tuple)):

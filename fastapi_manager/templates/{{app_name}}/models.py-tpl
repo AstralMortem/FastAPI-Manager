@@ -1,0 +1,1 @@
+from fastapi_manager.db import BaseTable
