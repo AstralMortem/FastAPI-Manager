@@ -100,6 +100,20 @@ class NewProjectHandler(TemplateHandler):
 class NewAppHandler(TemplateHandler):
     template_placeholder: str = "{{app_name}}"
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.placeholders = {
+            self.template_placeholder: self.name,
+            "{{camel_case_app_name}}": self._convert_to_camel_case(self.name),
+        }
+
+    def _convert_to_camel_case(self, name: str):
+        st = name.split("_")
+        if len(st) == 1 and st[0][0].isupper():
+            return st[0]
+        else:
+            return "".join(map(lambda x: x.capitalize(), st))
+
     def _check_dest_path(self, dest: Path):
         return_path = dest.joinpath(self.name)
         if self.name in os.listdir(dest):

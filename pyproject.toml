@@ -12,6 +12,7 @@ asyncpg = "^0.29.0"
 alembic = "^1.13.2"
 fastapi = "^0.111.1"
 sqlalchemy = "^2.0.31"
+class-pool = "^0.7rc1"
 
 
 [tool.poetry.group.test.dependencies]

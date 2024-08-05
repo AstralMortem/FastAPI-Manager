@@ -116,6 +116,17 @@ files = [
 ]
 
 [[package]]
+name = "class-pool"
+version = "0.7rc1"
+description = "Simple implementation of class pools for Python. Optional support for Django and DRF (if available)"
+optional = false
+python-versions = "*"
+files = [
+    {file = "class-pool-0.7rc1.tar.gz", hash = "sha256:5ac77757a5ab0e91ca427cc4288d25dc219de88e8b797c3c9fe8529859e4d70e"},
+    {file = "class_pool-0.7rc1-py3-none-any.whl", hash = "sha256:0d8939223c7d9a9ddc51c3b4e36517b8ce0d154b7dca561b026cfdcfa1abcffa"},
+]
+
+[[package]]
 name = "click"
 version = "8.1.7"
 description = "Composable command line interface toolkit"
@@ -1237,4 +1248,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "8be1dc1ce4199843cf585fa9b0fc4099a837fb9c7c46c204eaf70847d03e41c0"
+content-hash = "f63113ec86a7b0893a7f1f1b2137ffe300dd47016839daa01c37a44eb3f014c9"
