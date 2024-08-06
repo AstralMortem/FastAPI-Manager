@@ -1,0 +1,2 @@
+DEBUG = "TEST"
+SMTH = "SMTH"

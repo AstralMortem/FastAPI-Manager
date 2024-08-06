@@ -49,7 +49,8 @@ class Settings:
         except:
             raise Exception(f"{self.SETTINGS_MODULE} module, does not exists")
 
-    def _validate_special_settings(self, key, value):
+    @staticmethod
+    def _validate_special_settings(key, value):
         if key in TUPLE_SETTINGS and not isinstance(value, (list, tuple)):
             raise Exception("The %s setting must be a list or a tuple." % key)
 

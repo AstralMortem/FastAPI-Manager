@@ -1,4 +1,5 @@
 import operator
+from typing import Callable
 
 
 class LazyObject:
@@ -14,7 +15,7 @@ class LazyObject:
         self._wrapped = self._factory()
         self._is_init = True
 
-    def new_method_proxy(func):
+    def new_method_proxy(func: Callable):
         """
         Util function to help us route functions
         to the nested object.

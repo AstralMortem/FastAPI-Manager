@@ -1,6 +1,7 @@
 from typing import Any, ClassVar, Tuple
 from sqlalchemy.orm import DeclarativeBase
 from .mixins import CommonMixin
+from fastapi_manager.utils.string import convert_to_snake_case
 
 
 class BaseTable(CommonMixin, DeclarativeBase):
@@ -10,7 +11,7 @@ class BaseTable(CommonMixin, DeclarativeBase):
     def __init_subclass__(cls, **kw: Any) -> None:
         super().__init_subclass__(**kw)
         cls.__table_args__ = {"schema": str(cls.__module__.split(".")[-2])}
-        return cls
+        cls.__tablename__ = convert_to_snake_case(cls.__name__)
 
     def __repr__(self):
         """Relationships не используются в repr(), т.к. могут вести к неожиданным подгрузкам"""

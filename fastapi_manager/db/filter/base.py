@@ -1,12 +1,11 @@
-from abc import ABC
-from typing import Any, Literal, NoReturn, Self, TypeVar, Generic, overload
+from typing import Literal, TypeVar
 from pydantic import BaseModel
-from sqlalchemy import select, insert, update, delete
+from sqlalchemy import select, delete
 from fastapi_manager.apps import apps
-from fastapi_manager.db.base import BaseTable
+from fastapi_manager.db.models.base import BaseTable
 import operator
 from fastapi_manager.db import sessionmanager
-from fastapi_manager.utils.async_class import AsyncClass, AsyncObject
+from fastapi_manager.utils.async_class import AsyncObject
 
 OPERATORS = Literal["eq", "gt", "ge", "lt", "le", "ne", "contains"]
 _RETURN_TYPE = TypeVar("_RETURN_TYPE", bound=BaseModel)
@@ -76,10 +75,10 @@ class FilterBuilder(AsyncObject):
         self.statement = self.statement.limit(limit)
         return self
 
-    def returns(self, pydantic_class: _RETURN_TYPE) -> _RETURN_TYPE:
+    def returns[_RETURN_TYPE](self, pydantic_class: _RETURN_TYPE) -> _RETURN_TYPE:
         if self.instance is None:
             raise Exception("You need to execute statement")
-        return pydantic_class.model_validate()
+        return pydantic_class.model_validate(self.instance)
 
     async def _perform_db_action(self):
         if self.statement is None:
