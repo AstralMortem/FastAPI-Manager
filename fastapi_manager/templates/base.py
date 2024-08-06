@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import shutil
 import fastapi_manager
+from fastapi_manager.conf import settings
 
 TEMPLATE_PATH = Path(fastapi_manager.__file__).parent.joinpath("templates")
 
@@ -105,6 +106,7 @@ class NewAppHandler(TemplateHandler):
         self.placeholders = {
             self.template_placeholder: self.name,
             "{{camel_case_app_name}}": self._convert_to_camel_case(self.name),
+            "{{project_name}}": settings.BASE_DIR.name,
         }
 
     def _convert_to_camel_case(self, name: str):

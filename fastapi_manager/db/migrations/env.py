@@ -39,15 +39,15 @@ def _include_object(target_schema):
         return None
 
     def include_object(obj, name, object_type, reflected, compare_to):
-        if object_type == "table":
-            return obj.schema in target_schema
-        else:
-            return True
+        print(name, object_type)
+        if object_type == "table" and reflected and name not in target_schema:
+            return False
+        return True
 
     return include_object
 
 
-def run_migrations_offline(target_metadata, schema) -> None:
+def run_migrations_offline(target_metadata, app_name, schema) -> None:
     """Run migrations in 'offline' mode.
 
     This configures the context with just a URL
@@ -67,25 +67,31 @@ def run_migrations_offline(target_metadata, schema) -> None:
         dialect_opts={"paramstyle": "named"},
         include_schemas=True,
         include_object=_include_object(schema),
+        version_table=f"{app_name}_alembic_migration",
+        version_table_schema="migrations",
     )
 
     with context.begin_transaction():
         context.run_migrations()
 
 
-def do_run_migrations(connection: Connection, target_metadata, schema) -> None:
+def do_run_migrations(
+    connection: Connection, target_metadata, app_name, schema
+) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
         include_schemas=True,
         include_object=_include_object(schema),
+        version_table=f"{app_name}_alembic_migration",
+        version_table_schema="migrations",
     )
 
     with context.begin_transaction():
         context.run_migrations()
 
 
-async def run_async_migrations(target_metadata, schema) -> None:
+async def run_async_migrations(target_metadata, app_name, schema) -> None:
     """In this scenario we need to create an Engine
     and associate a connection with the context.
 
@@ -98,23 +104,25 @@ async def run_async_migrations(target_metadata, schema) -> None:
     )
 
     async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations, target_metadata, schema)
+        await connection.run_sync(do_run_migrations, target_metadata, app_name, schema)
 
     await connectable.dispose()
 
 
-def run_migrations_online(target_metadata, schema) -> None:
+def run_migrations_online(target_metadata, app_name, schema) -> None:
     """Run migrations in 'online' mode."""
 
-    asyncio.run(run_async_migrations(target_metadata, schema))
+    asyncio.run(run_async_migrations(target_metadata, app_name, schema))
 
 
-def run_migrations(metadata: MetaData, schema: List[str] | None = None):
+def run_migrations(metadata: MetaData, app_name, schema: List[str] | None = None):
     # if schema not defined, try get schema from metadata
     if schema is None:
+        schema = [app_name]
+    if metadata.schema is not None:
         schema = metadata.schema
 
     if context.is_offline_mode():
-        run_migrations_offline(metadata, schema)
+        run_migrations_offline(metadata, app_name, schema)
     else:
-        run_migrations_online(metadata, schema)
+        run_migrations_online(metadata, app_name, schema)
