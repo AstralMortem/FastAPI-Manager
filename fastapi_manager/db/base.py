@@ -1,4 +1,4 @@
-from typing import ClassVar, Tuple
+from typing import Any, ClassVar, Tuple
 from sqlalchemy.orm import DeclarativeBase
 from .mixins import CommonMixin
 
@@ -6,6 +6,11 @@ from .mixins import CommonMixin
 class BaseTable(CommonMixin, DeclarativeBase):
     repr_cols_num: ClassVar[int] = 3
     repr_cols: ClassVar[Tuple] = tuple()
+
+    def __init_subclass__(cls, **kw: Any) -> None:
+        super().__init_subclass__(**kw)
+        cls.__table_args__ = {"schema": str(cls.__module__.split(".")[-2])}
+        return cls
 
     def __repr__(self):
         """Relationships не используются в repr(), т.к. могут вести к неожиданным подгрузкам"""

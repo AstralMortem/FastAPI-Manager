@@ -11,8 +11,8 @@ class AppConfig:
             cls.models_module = cls.path.removesuffix(".apps") + "." + "models"
 
     @classmethod
-    def get_models(self):
-        return next(iter(self.pools)).get_app_models(self.name)
+    def get_models(cls):
+        return next(iter(cls.pools)).get_app_models(cls.name)
 
     @classmethod
     def get_model(cls, model_name: str):

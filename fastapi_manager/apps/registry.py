@@ -444,13 +444,25 @@ class Pool(PoolInterface):
     def get_app_models(self, app_name):
         return self.all_models.get(app_name)
 
+    def get_model(self, name):
+        filtered = filter(
+            lambda x: x.__table_name__ == name or x.__name__ == name, self.get_models()
+        )
+
+        vals = list(filtered)
+        if len(vals) <= 0:
+            raise Exception(f"Model {name} does not exist")
+        return vals.pop()
+
 
 class Apps(Pool):
     module_lookup = "apps"
 
-    def list_apps(self):
-        for apps in self._registry[0]:
-            print(apps)
+    def __iter__(self):
+        return iter(self._registry[0])
+
+    def get_apps_list(self):
+        return list(self.__iter__())
 
     def get_class_id(self, cls):
         try:
