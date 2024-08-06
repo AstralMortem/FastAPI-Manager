@@ -10,6 +10,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
+from sqlalchemy.schema import CreateSchema
 from fastapi_manager.conf import settings
 
 # this is the Alembic Config object, which provides
@@ -104,6 +105,7 @@ async def run_async_migrations(target_metadata, app_name, schema) -> None:
     )
 
     async with connectable.connect() as connection:
+        await connection.execute(CreateSchema("migrations", True))
         await connection.run_sync(do_run_migrations, target_metadata, app_name, schema)
 
     await connectable.dispose()
