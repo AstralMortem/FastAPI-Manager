@@ -1,10 +1,4 @@
-# TODO:
-#  Add parser for database settings
-#  Add util for checking if modules exists
-import importlib
-
 from pydantic import BaseModel, ValidationError
-
 from fastapi_manager.utils.module_loading import import_string
 
 
