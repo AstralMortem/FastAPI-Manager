@@ -1,435 +1,474 @@
-import functools
-import sys
+from importlib import import_module
+from importlib.util import find_spec
+import inspect
 import threading
-import warnings
-from collections import Counter, defaultdict
-from functools import partial
+from typing import Self
+from fastapi_manager.db import BaseTable
 
-from .config import AppConfig
+from fastapi_manager.conf import settings
 
 
-class Apps:
+def module_has_submodule(package, module_name):
     """
-    A registry that stores the configuration of installed applications.
+    Copy of django's module_has_submodule function. Pasted here to avoid dependency on Django.
+    :param package:
+    :param module_name:
+    :return:
+    """
+    try:
+        package_name = package.__name__
+        package_path = package.__path__
+    except AttributeError:
+        # package isn't a package.
+        return False
 
-    It also keeps track of models, e.g. to provide reverse relations.
+    full_module_name = package_name + "." + module_name
+    try:
+        return find_spec(full_module_name, package_path) is not None
+    except (ImportError, AttributeError):
+        return False
+
+
+class PoolInterface(object):
+
+    def get(self, class_id):
+        """
+        Returns class of specified ID. Fails silently by returning None or default
+        class (if supported)
+        :param class_id:
+        :return:
+        """
+        raise NotADirectoryError()
+
+    def __getitem__(self, class_id):
+        """
+        Returns class of specified ID. Should throw KeyError if class of given ID
+        does not exist. Never returns default class, this function should returns only
+        explicitly registered classes.
+        :param class_id:
+        :return:
+        """
+        raise NotADirectoryError()
+
+    def __contains__(self, class_id):
+        """
+        Check if pool has registered class of given ID.
+        :param class_id:
+        :return:
+        """
+        raise NotADirectoryError()
+
+    def __iter__(self):
+        """
+        Iterates over list of tuples (class_id, class)
+        :return:
+        """
+        raise NotADirectoryError()
+
+
+class PoolRegistrationError(Exception):
+    pass
+
+
+class SkipRegistration(Exception):
+    pass
+
+
+class Signal(object):
+
+    def __init__(self):
+        self._handlers = []
+
+    def add_handler(self, callback):
+        self._handlers.append(callback)
+
+    def __call__(self, *args, **kwargs):
+        for handler in self._handlers:
+            handler(*args, **kwargs)
+
+
+class Pool(PoolInterface):
+    """
+    Pool is a manager for classes declared in various places which should be
+    grouped into one pool of tools. For example, tags may be declared in multiple
+    applications but should be easily accessible from one place.
+    To achieve this, each tag should be registered in tag pool.
+
+    Pool is a tool which scans all applications and looks for certain module inside
+    and import them on first pool access. Each imported module can register
+    classes in the pool, using pool.register() function. Registered classes
+    do not have to be declared in imported module. Pool is not collecting classes,
+    pool only imports some modules from each application and these modules register
+    classes in the pool.
+
+    Each class in the pool is identified by class id which is generated
+    using get_class_id function. Registered classes are accessible using this ID.
+
+    Design of this approach base on Django admin pages pool.
     """
 
-    def __init__(self, installed_apps=()):
-        # installed_apps is set to None when creating the main registry
-        # because it cannot be populated at that point. Other registries must
-        # provide a list of installed apps and are populated immediately.
-        if installed_apps is None and hasattr(sys.modules[__name__], "apps"):
-            raise RuntimeError("You must supply an installed_apps argument.")
+    __shared_state = {"lock": threading.Lock(), "counter": 0}
 
-        # Mapping of app labels => model names => model classes. Every time a
-        # model is imported, ModelBase.__new__ calls apps.register_model which
-        # creates an entry in all_models. All imported models are registered,
-        # regardless of whether they're defined in an installed application
-        # and whether the registry has been populated. Since it isn't possible
-        # to reimport a module safely (it could reexecute initialization code)
-        # all_models is never overridden or reset.
-        self.all_models = defaultdict(dict)
+    _registry = {}
 
-        # Mapping of labels to AppConfig instances for installed apps.
-        self.app_configs = {}
+    module_lookup = None  # leave None to avoid modules discovering and auto-loading
+    base_class = None  # no base class
+    default = None
+    abstract = False  # is registration of abstract classes allowed?
+    all_models = {}
 
-        # Stack of app_configs. Used to store the current state in
-        # set_available_apps and set_installed_apps.
-        self.stored_app_configs = []
-
-        # Whether the registry is populated.
-        self.apps_ready = self.models_ready = self.ready = False
-        # For the autoreloader.
-        self.ready_event = threading.Event()
-
-        # Lock for thread-safe population.
-        self._lock = threading.RLock()
-        self.loading = False
-
-        # Maps ("app_label", "modelname") tuples to lists of functions to be
-        # called when the corresponding model is ready. Used by this class's
-        # `lazy_model_operation()` and `do_pending_operations()` methods.
-        self._pending_operations = defaultdict(list)
-
-        # Populate apps and models, unless it's the main registry.
-        if installed_apps is not None:
-            self.populate(installed_apps)
-
-    def populate(self, installed_apps=None):
+    @classmethod
+    def new(
+        cls, base_class=None, module_lookup=None, default=None, abstract=False
+    ) -> Self:
         """
-        Load application configurations and models.
-
-        Import each application module and then each model module.
-
-        It is thread-safe and idempotent, but not reentrant.
+        Returns new pool for given base
+        :return:
         """
-        if self.ready:
-            return
+        if base_class not in cls._registry:
 
-        # populate() might be called by two threads in parallel on servers
-        # that create threads before initializing the WSGI callable.
-        with self._lock:
-            if self.ready:
-                return
-
-            # An RLock prevents other threads from entering this section. The
-            # compare and set operation below is atomic.
-            if self.loading:
-                # Prevent reentrant calls to avoid running AppConfig.ready()
-                # methods twice.
-                raise RuntimeError("populate() isn't reentrant")
-            self.loading = True
-
-            # Phase 1: initialize app configs and import app modules.
-            for entry in installed_apps:
-                if isinstance(entry, AppConfig):
-                    app_config = entry
-                else:
-                    app_config = AppConfig.create(entry)
-                if app_config.label in self.app_configs:
-                    raise Exception(
-                        "Application labels aren't unique, "
-                        "duplicates: %s" % app_config.label
-                    )
-
-                self.app_configs[app_config.label] = app_config
-                app_config.apps = self
-
-            # Check for duplicate app names.
-            counts = Counter(
-                app_config.name for app_config in self.app_configs.values()
+            cls.__shared_state["counter"] += 1
+            pool_cls = type(
+                "Pool{}".format(cls.__shared_state["counter"]),
+                (cls,),
+                {
+                    "module_lookup": module_lookup,
+                    "default": default,
+                    "abstract": abstract,
+                    "base_class": base_class,
+                },
             )
-            duplicates = [name for name, count in counts.most_common() if count > 1]
-            if duplicates:
-                raise Exception(
-                    "Application names aren't unique, "
-                    "duplicates: %s" % ", ".join(duplicates)
+
+            pool_id = pool_cls.get_pool_id()
+            if pool_id is not None:
+                if pool_id in cls._registry:
+                    raise ValueError("Pool id = '{}' is already in use".format(pool_id))
+
+                cls._registry[base_class] = pool_cls
+
+        return cls._registry[base_class]()
+
+    @classmethod
+    def of(cls, base_class):
+        # get pool of classes from given base class, works only
+        return cls._registry[base_class]()
+
+    def __init__(self):
+        # To take power of shared_state and data sharing between threads
+        # each class has to be unique pool. Because of that all params
+        # (module_lookup, base_class, default) are class attributes and
+        # should be overridden in derived pools instead of be passed
+        # in init()
+
+        # By the same reason, __init__ takes no arguments to avoid situation when
+        # programmer try to instantiate same pool multiple times with different
+        # arguments.
+
+        # this lock is probably not required, but I left it to be on the safe side
+        with self.__shared_state["lock"]:
+            if self.__class__.__name__ not in self.__shared_state:
+                self.__shared_state[self.__class__.__name__] = dict(
+                    loaded=self.module_lookup is None,
+                    handled=set(),
+                    _errors=[],
+                    _classes={},
+                    _metas={},
+                    module_lookup=self.module_lookup,
+                    base_class=self.base_class,
+                    default=self.default,
+                    abstract=self.abstract,
+                    # signals
+                    on_register=Signal(),
                 )
 
-            self.apps_ready = True
+            self.__dict__ = self.__shared_state[self.__class__.__name__]
 
-            # Phase 2: import models modules.
-            for app_config in self.app_configs.values():
-                app_config.import_models()
+        self.postponed = []
 
-            self.clear_cache()
-
-            self.models_ready = True
-
-            # Phase 3: run ready() methods of app configs.
-            for app_config in self.get_app_configs():
-                app_config.ready()
-
-            self.ready = True
-            self.ready_event.set()
-
-    def check_apps_ready(self):
-        """Raise an exception if all apps haven't been imported yet."""
-        if not self.apps_ready:
-            from fastapi_manager.conf import settings
-
-            # If "not ready" is due to unconfigured settings, accessing
-            # INSTALLED_APPS raises a more helpful ImproperlyConfigured
-            # exception.
-            settings.INSTALLED_APPS
-            raise Exception("Apps aren't loaded yet.")
-
-    def check_models_ready(self):
-        """Raise an exception if all models haven't been imported yet."""
-        if not self.models_ready:
-            raise Exception("Models aren't loaded yet.")
-
-    def get_app_configs(self):
-        """Import applications and return an iterable of app configs."""
-        self.check_apps_ready()
-        return self.app_configs.values()
-
-    def get_app_config(self, app_label):
+    def __deepcopy__(self, memo):
         """
-        Import applications and returns an app config for the given label.
-
-        Raise LookupError if no application exists with this label.
+        Customized deepcopy which assignees same dict
+        :param memo:
+        :return:
         """
-        self.check_apps_ready()
-        try:
-            return self.app_configs[app_label]
-        except KeyError:
-            message = "No installed app with label '%s'." % app_label
-            for app_config in self.get_app_configs():
-                if app_config.name == app_label:
-                    message += " Did you mean '%s'?" % app_config.label
-                    break
-            raise LookupError(message)
-
-    # This method is performance-critical at least for Django's test suite.
-    @functools.cache
-    def get_models(self, include_auto_created=False, include_swapped=False):
-        """
-        Return a list of all installed models.
-
-        By default, the following models aren't included:
-
-        - auto-created models for many-to-many relations without
-          an explicit intermediate table,
-        - models that have been swapped out.
-
-        Set the corresponding keyword argument to True to include such models.
-        """
-        self.check_models_ready()
-
-        result = []
-        for app_config in self.app_configs.values():
-            result.extend(app_config.get_models(include_auto_created, include_swapped))
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        result.__dict__ = self.__dict__
         return result
 
-    def get_model(self, app_label, model_name=None, require_ready=True):
+    @classmethod
+    def get_pool_id(cls):
         """
-        Return the model matching the given app_label and model_name.
-
-        As a shortcut, app_label may be in the form <app_label>.<model_name>.
-
-        model_name is case-insensitive.
-
-        Raise LookupError if no application exists with this label, or no
-        model exists with this name in the application. Raise ValueError if
-        called with a single argument that doesn't contain exactly one dot.
+        Using this ID pool can be retrieved by of() method.
+        If None is returned, pool won't be available in of(). ID conflict raises ValueError exception.
+        :return:
         """
-        if require_ready:
-            self.check_models_ready()
-        else:
-            self.check_apps_ready()
+        return cls.base_class
 
-        if model_name is None:
-            app_label, model_name = app_label.split(".")
+    def populate(self, packages):
+        """
+        Fill in all the cache information. This method is threadsafe, in the
+        sense that every caller will see the same state upon return, and if the
+        cache is already initialised, it does no work.
+        """
 
-        app_config = self.get_app_config(app_label)
+        if self.loaded or self.module_lookup is None:
+            return
 
-        if not require_ready and app_config.models is None:
-            app_config.import_models()
+        # Note that we want to use the import lock here - the app loading is
+        # in many cases initiated implicitly by importing, and thus it is
+        # possible to end up in deadlock when one thread initiates loading
+        # without holding the importer lock and another thread then tries to
+        # import something which also launches the app loading. For details of
+        # this situation see Django #18251 issue.
+        self._errors = []
 
-        return app_config.get_model(model_name, require_ready=require_ready)
+        if self.loaded:
+            return
+        for app_name in packages:
+            if app_name in self.handled:
+                continue
+            self.load_app(app_name, True)
 
-    def register_model(self, app_label, model):
-        # Since this method is called when models are imported, it cannot
-        # perform imports because of the risk of import loops. It mustn't
-        # call get_app_config().
-        model_name = model._meta.model_name
-        app_models = self.all_models[app_label]
-        if model_name in app_models:
-            if (
-                model.__name__ == app_models[model_name].__name__
-                and model.__module__ == app_models[model_name].__module__
-            ):
-                warnings.warn(
-                    "Model '%s.%s' was already registered. Reloading models is not "
-                    "advised as it can lead to inconsistencies, most notably with "
-                    "related models." % (app_label, model_name),
-                    RuntimeWarning,
-                    stacklevel=2,
-                )
+        for app_name in self.postponed:
+            self.load_app(app_name)
+
+        if self._errors:
+            raise Exception(str(self._errors))
+
+        self.loaded = True
+        self.post_population()
+
+    def post_population(self):
+        pass
+
+    def load_app(self, app_name, can_postpone=False):
+        """
+        Loads the app with the provided fully qualified name, and returns the
+        model module.
+        """
+
+        self.handled.add(app_name)
+        package_name = ".".join((app_name,) + tuple(self.module_lookup.split(".")[:-1]))
+        module_lookup = self.module_lookup.split(".")[-1]
+
+        package_name = (
+            f"{settings.BASE_DIR.name}.{settings.MODULES_DIR.name}.{package_name}"
+        )
+
+        try:
+            package = import_module(package_name)
+
+        except ImportError:
+            # there is no such package, skip application
+            raise Exception(
+                f"There are no module {package_name}, please check INSTALLED_APPS in settings"
+            )
+            return None
+
+        if not module_has_submodule(package, module_lookup):
+            return None
+
+        try:
+            mod = import_module("%s.%s" % (package_name, module_lookup))
+
+        except ImportError:
+
+            if can_postpone:
+                self.postponed.append(app_name)
             else:
-                raise RuntimeError(
-                    "Conflicting '%s' models in application '%s': %s and %s."
-                    % (model_name, app_label, app_models[model_name], model)
-                )
-        app_models[model_name] = model
-        self.do_pending_operations(model)
-        self.clear_cache()
+                raise
+        else:
+            for name, obj in inspect.getmembers(mod):
+                if inspect.isclass(obj):
+                    self.register(obj, silently=True)
 
-    def is_installed(self, app_name):
+        # part 2: load models
+        self.load_models(package_name, app_name)
+
+    def load_models(self, package_name, app_name):
+        try:
+            mod = import_module("%s.%s" % (package_name, "models"))
+        except ImportError:
+            raise Exception(f"You need create models.py file inside {app_name} app")
+        classes = inspect.getmembers(mod, inspect.isclass)
+
+        models_list = []
+        for name, model in classes:
+            if issubclass(model, BaseTable) and not model is BaseTable:
+                models_list.append(model)
+        if len(models_list) > 0:
+            self.all_models.update({app_name: models_list})
+
+    def get_class_id(self, cls):
+        return cls.__name__
+
+    def register(self, cls=None, forced_id=None, silently=False):
         """
-        Check whether an application with this name exists in the registry.
+        Registers given class in the pool.
+        Can be also used as a decorator.
 
-        app_name is the full name of the app e.g. 'django.contrib.admin'.
+        Examples:
+        pool.register(FooClass)
+
+        @pool.register
+        class FooClass():
+            pass
+
+        @pool.register()
+        class FooClass():
+            pass
+
+        @pool.register(silently=True):
+        class FooClass():
+            pass
+
+        :param cls: Class to register
+        :param forced_id: Override ID generated by the pool
+        :param silently: Fails silently?
+        :return:
         """
-        self.check_apps_ready()
-        return any(ac.name == app_name for ac in self.app_configs.values())
 
-    def get_containing_app_config(self, object_name):
-        """
-        Look for an app config containing a given object.
+        is_decorator = cls is None
 
-        object_name is the dotted Python path to the object.
+        def _decorator(dcls):
+            try:
+                cid, error = self._register(dcls, forced_id)
+            except SkipRegistration:
+                return dcls
 
-        Return the app config for the inner application in case of nesting.
-        Return None if the object isn't in any registered app config.
-        """
-        self.check_apps_ready()
-        candidates = []
-        for app_config in self.app_configs.values():
-            if object_name.startswith(app_config.name):
-                subpath = object_name.removeprefix(app_config.name)
-                if subpath == "" or subpath[0] == ".":
-                    candidates.append(app_config)
-        if candidates:
-            return sorted(candidates, key=lambda ac: -len(ac.name))[0]
+            if error is not None and not silently:
+                raise PoolRegistrationError(error)
 
-    def get_registered_model(self, app_label, model_name):
-        """
-        Similar to get_model(), but doesn't require that an app exists with
-        the given app_label.
+            return dcls
 
-        It's safe to call this method at import time, even while the registry
-        is being populated.
-        """
-        model = self.all_models[app_label].get(model_name.lower())
-        if model is None:
-            raise LookupError("Model '%s.%s' not registered." % (app_label, model_name))
-        return model
+        if is_decorator:
+            # used as decorator
+            return _decorator
 
-    @functools.cache
-    def get_swappable_settings_name(self, to_string):
-        """
-        For a given model string (e.g. "auth.User"), return the name of the
-        corresponding settings name if it refers to a swappable model. If the
-        referred model is not swappable, return None.
+        return _decorator(cls)
 
-        This method is decorated with @functools.cache because it's performance
-        critical when it comes to migrations. Since the swappable settings don't
-        change after Django has loaded the settings, there is no reason to get
-        the respective settings attribute over and over again.
-        """
-        to_string = to_string.lower()
-        for model in self.get_models(include_swapped=True):
-            swapped = model._meta.swapped
-            # Is this model swapped out for the model given by to_string?
-            if swapped and swapped.lower() == to_string:
-                return model._meta.swappable
-            # Is this model swappable and the one given by to_string?
-            if model._meta.swappable and model._meta.label_lower == to_string:
-                return model._meta.swappable
-        return None
+    def _register(self, cls, forced_id=None):
 
-    def set_available_apps(self, available):
-        """
-        Restrict the set of installed apps used by get_app_config[s].
-
-        available must be an iterable of application names.
-
-        set_available_apps() must be balanced with unset_available_apps().
-
-        Primarily used for performance optimization in TransactionTestCase.
-
-        This method is safe in the sense that it doesn't trigger any imports.
-        """
-        available = set(available)
-        installed = {app_config.name for app_config in self.get_app_configs()}
-        if not available.issubset(installed):
-            raise ValueError(
-                "Available apps isn't a subset of installed apps, extra apps: %s"
-                % ", ".join(available - installed)
+        if self.base_class is not None and not issubclass(cls, self.base_class):
+            return (
+                None,
+                "<{}> is not a subclass of <{}> which is required by <{}> pool".format(
+                    repr(cls), repr(self.base_class), repr(self)
+                ),
             )
 
-        self.stored_app_configs.append(self.app_configs)
-        self.app_configs = {
-            label: app_config
-            for label, app_config in self.app_configs.items()
-            if app_config.name in available
-        }
-        self.clear_cache()
+        if not self.abstract and self.is_abstract(cls):
+            return (
+                None,
+                "Abstract class <{}> cannot be registered in <%s> pool".format(
+                    repr(cls), repr(self)
+                ),
+            )
 
-    def unset_available_apps(self):
-        """Cancel a previous call to set_available_apps()."""
-        self.app_configs = self.stored_app_configs.pop()
-        self.clear_cache()
+        cid = forced_id if forced_id is not None else self.get_class_id(cls)
+        if cid is None:
+            return None, "Class ID cannot be determined for <{}>".format(repr(cls))
 
-    def set_installed_apps(self, installed):
+        self.on_register(cid, cls)
+        self._classes[cid] = cls
+
+        pools = getattr(cls, "pools", set())
+        pools.add(self)
+        setattr(cls, "pools", pools)
+
+        return cid, None
+
+    def is_abstract(self, cls):
+        return inspect.isabstract(cls)
+
+    @property
+    def classes(self):
+        return self._classes
+
+    def get(self, class_id):
         """
-        Enable a different set of installed apps for get_app_config[s].
-
-        installed must be an iterable in the same format as INSTALLED_APPS.
-
-        set_installed_apps() must be balanced with unset_installed_apps(),
-        even if it exits with an exception.
-
-        Primarily used as a receiver of the setting_changed signal in tests.
-
-        This method may trigger new imports, which may add new models to the
-        registry of all imported models. They will stay in the registry even
-        after unset_installed_apps(). Since it isn't possible to replay
-        imports safely (e.g. that could lead to registering listeners twice),
-        models are registered when they're imported and never removed.
+        Returns class of given ID, if there is no class of requested ID registered returns
+        base class if use_base_class_as_default is set or None.
+        :param class_id:
+        :return:
         """
-        if not self.ready:
-            raise Exception("App registry isn't ready yet.")
-        self.stored_app_configs.append(self.app_configs)
-        self.app_configs = {}
-        self.apps_ready = self.models_ready = self.loading = self.ready = False
-        self.clear_cache()
-        self.populate(installed)
+        try:
+            return self[class_id]
+        except KeyError:
+            return (
+                self.default(class_id)
+                if callable(self.default) and not isinstance(self.default, type)
+                else self.default
+            )
 
-    def unset_installed_apps(self):
-        """Cancel a previous call to set_installed_apps()."""
-        self.app_configs = self.stored_app_configs.pop()
-        self.apps_ready = self.models_ready = self.ready = True
-        self.clear_cache()
-
-    def clear_cache(self):
+    def __getitem__(self, class_id):
         """
-        Clear all internal caches, for methods that alter the app registry.
-
-        This is mostly used in tests.
+        Returns class of requested ID. If certain class is not registered raises KeyError
+        exception, even if use_base_class_as_default is set.
+        :param class_id:
+        :return:
         """
-        self.get_swappable_settings_name.cache_clear()
-        # Call expire cache on each model. This will purge
-        # the relation tree and the fields cache.
-        self.get_models.cache_clear()
-        if self.ready:
-            # Circumvent self.get_models() to prevent that the cache is refilled.
-            # This particularly prevents that an empty value is cached while cloning.
-            for app_config in self.app_configs.values():
-                for model in app_config.get_models(include_auto_created=True):
-                    model._meta._expire_cache()
+        return self.classes[class_id]
 
-    def lazy_model_operation(self, function, *model_keys):
+    def __contains__(self, class_id):
         """
-        Take a function and a number of ("app_label", "modelname") tuples, and
-        when all the corresponding models have been imported and registered,
-        call the function with the model classes as its arguments.
-
-        The function passed to this method must accept exactly n models as
-        arguments, where n=len(model_keys).
+        Check if class of given ID is explicitly registered. If class is not registered
+        it cannot be retrieved by item getter, however valid class (base class) can be returned
+        by get() method if use_base_class_as_default is set.
+        :param class_id:
+        :return:
         """
-        # Base case: no arguments, just execute the function.
-        if not model_keys:
-            function()
-        # Recursive case: take the head of model_keys, wait for the
-        # corresponding model class to be imported and registered, then apply
-        # that argument to the supplied function. Pass the resulting partial
-        # to lazy_model_operation() along with the remaining model args and
-        # repeat until all models are loaded and all arguments are applied.
-        else:
-            next_model, *more_models = model_keys
+        return class_id in self.classes
 
-            # This will be executed after the class corresponding to next_model
-            # has been imported and registered. The `func` attribute provides
-            # duck-type compatibility with partials.
-            def apply_next_model(model):
-                next_function = partial(apply_next_model.func, model)
-                self.lazy_model_operation(next_function, *more_models)
+    def __iter__(self):
+        return iter(self.classes.items())
 
-            apply_next_model.func = function
+    def __eq__(self, other):
+        # all instances shares same attributes, so testing classes is enough
+        return self.__class__ == other.__class__
 
-            # If the model has already been imported and registered, partially
-            # apply it to the function now. If not, add it to the list of
-            # pending operations for the model, where it will be executed with
-            # the model class as its sole argument once the model is ready.
-            try:
-                model_class = self.get_registered_model(*next_model)
-            except LookupError:
-                self._pending_operations[next_model].append(apply_next_model)
-            else:
-                apply_next_model(model_class)
+    def __hash__(self):
+        return hash(self.__class__)
 
-    def do_pending_operations(self, model):
-        """
-        Take a newly-prepared model and pass it to each function waiting for
-        it. This is called at the very end of Apps.register_model().
-        """
-        key = model._meta.app_label, model._meta.model_name
-        for function in self._pending_operations.pop(key, []):
-            function(model)
+    def __repr__(self):
+        return "{}<{}>".format(
+            self.__class__.__name__,
+            self.base_class.__name__ if self.base_class is not None else "ALL",
+        )
+
+    def get_models(self):
+        return self.all_models
+
+    def get_app_models(self, app_name):
+        return self.all_models.get(app_name)
+
+    def get_model(self, name):
+        filtered = filter(
+            lambda x: x.__table_name__ == name or x.__name__ == name, self.get_models()
+        )
+
+        vals = list(filtered)
+        if len(vals) <= 0:
+            raise Exception(f"Model {name} does not exist")
+        return vals.pop()
 
 
-apps = Apps(installed_apps=None)
+class Apps(Pool):
+    module_lookup = "apps"
+
+    def __iter__(self):
+        return iter(self._registry[0])
+
+    def get_apps_list(self):
+        return list(self.__iter__())
+
+    def get_class_id(self, cls):
+        try:
+            return cls.name
+        except Exception:
+            raise Exception("You need specify name for app")
+
+
+apps = Apps()

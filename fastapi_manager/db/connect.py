@@ -1,6 +1,6 @@
 import contextlib
 from typing import Any, AsyncGenerator, AsyncIterator
-from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
@@ -45,7 +45,7 @@ class DatabaseSessionManager:
         if self._sessionmaker is None:
             raise Exception("DatabaseSessionManager is not initialized")
 
-        session = self._sessionmaker()
+        session: AsyncSession = self._sessionmaker()
         try:
             yield session
         except Exception:
