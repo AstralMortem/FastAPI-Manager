@@ -17,3 +17,11 @@ class RecordDoesNotExist(HTTPException):
 #
 # Core Exception
 #
+class ImproperlyConfigured(Exception):
+    """FastapiManager is somehow improperly configured"""
+
+    pass
+
+
+class AppRegistryNotReady(Exception):
+    pass

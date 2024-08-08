@@ -1,5 +1,6 @@
 import operator
 from typing import Callable
+import functools
 
 
 class LazyObject:
@@ -63,3 +64,16 @@ class LazyObject:
     __iter__ = new_method_proxy(iter)
     __len__ = new_method_proxy(len)
     __contains__ = new_method_proxy(operator.contains)
+
+
+class cached_property:
+    def __init__(self, function):
+        self.function = function
+        functools.update_wrapper(self, function)
+
+    def __get__(self, obj, type_):
+        if obj is None:
+            return self
+        val = self.function(obj)
+        obj.__dict__[self.function.__name__] = val
+        return val

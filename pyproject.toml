@@ -20,6 +20,11 @@ pytest = "^8.3.2"
 pytest-asyncio = "^0.23.8"
 pytest-dependency = "^0.6.0"
 
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.11.1"
+django = "^5.1"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

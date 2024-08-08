@@ -9,7 +9,7 @@ def test_get_engine():
 
 
 def test_validate_database():
-    settings.DATABSES = {
+    settings.DATABASES = {
         "default": {
             "ENGINE": "fastapi_manager.db.backends.Postgresql",
             "OPTIONS": {
