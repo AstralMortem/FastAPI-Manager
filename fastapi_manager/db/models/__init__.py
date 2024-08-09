@@ -1,9 +1,9 @@
-from .base import BaseTable
+from .base import Model
 from .mixins import TimestampMixin, IntPrimaryKey, UUIDPrimaryKey
 
 
 __all__ = [
-    "BaseTable",
+    "Model",
     "TimestampMixin",
     "IntPrimaryKey",
     "UUIDPrimaryKey",

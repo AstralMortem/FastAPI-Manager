@@ -1,11 +1,12 @@
 import functools
 import sys
 import threading
+import warnings
 from collections import defaultdict, Counter
-from typing import Dict
-
-from fastapi_manager.apps import AppConfig
+from typing import Dict, TYPE_CHECKING
 from fastapi_manager.core.exceptions import ImproperlyConfigured, AppRegistryNotReady
+from fastapi_manager.apps.config import AppConfig
+from utils.string import is_snake_case, convert_to_snake_case
 
 
 class Apps:
@@ -74,6 +75,7 @@ class Apps:
                     app_config = entry
                 else:
                     app_config = AppConfig.create(entry)
+
                 if app_config.label in self.app_configs:
                     raise ImproperlyConfigured(
                         "Application labels aren't unique, "
@@ -152,6 +154,9 @@ class Apps:
         if model_name is None:
             app_label, model_name = app_label.split(".")
 
+        if not is_snake_case(model_name):
+            model_name = convert_to_snake_case(model_name)
+
         app_config = self.get_app_config(app_label)
         if not require_ready and app_config.models is None:
             app_config.import_models()
@@ -169,3 +174,52 @@ class Apps:
         if model is None:
             raise LookupError("Model '%s.%s' not registered." % (app_label, model_name))
         return model
+
+    def register_model(self, app_label, model):
+        # Since this method is called when models are imported, it cannot
+        # perform imports because of the risk of import loops. It mustn't
+        # call get_app_config().
+        model_name = model.model_name
+        app_models = self.all_models[app_label]
+        if model_name in app_models:
+            if (
+                model.__name__ == app_models[model_name].__name__
+                and model.__module__ == app_models[model_name].__module__
+            ):
+                warnings.warn(
+                    "Model '%s.%s' was already registered. Reloading models is not "
+                    "advised as it can lead to inconsistencies, most notably with "
+                    "related models." % (app_label, model_name),
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+            else:
+                raise RuntimeError(
+                    "Conflicting '%s' models in application '%s': %s and %s."
+                    % (model_name, app_label, app_models[model_name], model)
+                )
+        app_models[model_name] = model
+        # self.do_pending_operations(model)
+        # self.clear_cache()
+
+    def get_containing_app_config(self, object_name):
+        """
+        Look for an app config containing a given object.
+
+        object_name is the dotted Python path to the object.
+
+        Return the app config for the inner application in case of nesting.
+        Return None if the object isn't in any registered app config.
+        """
+        self.check_apps_ready()
+        candidates = []
+        for app_config in self.app_configs.values():
+            if object_name.startswith(app_config.name):
+                subpath = object_name.removeprefix(app_config.name)
+                if subpath == "" or subpath[0] == ".":
+                    candidates.append(app_config)
+        if candidates:
+            return sorted(candidates, key=lambda ac: -len(ac.name))[0]
+
+
+apps = Apps(installed_apps=None)

@@ -11,9 +11,6 @@ from fastapi_manager.utils.module_loading import module_has_submodule, import_st
 MODELS_MODULE_NAME = "models"
 APPS_MODULE_NAME = "apps"
 
-if TYPE_CHECKING:
-    from .registry import Apps
-
 
 def get_unique_file_path_to_module(module):
     paths = list(getattr(module, "__path__", []))
@@ -52,9 +49,9 @@ class AppConfig:
         self.module: Any = app_module
 
         # app registry, sets in registry.py Apps class
-        self.apps: Apps | None = None
+        self.apps = None
 
-        # check label for app, it will be used in regitry dict as key, to get app config by this label
+        # check label for app, it will be used in registry dict as key, to get app config by this label
         if not hasattr(self, "label"):
             self.label = app_name.rpartition(".")[2]
         if not self.label.isidentifier():
@@ -92,9 +89,7 @@ class AppConfig:
             yield model
 
     def import_models(self):
-        # Dont understand why this is needed TODO: remove it
-        # Get models list from app registry by key as app label
-        # self.models = self.apps.all_models[self.label]
+        self.models = self.apps.all_models[self.label]
 
         # check if inside app folder exist module with models
         if module_has_submodule(self.module, MODELS_MODULE_NAME):

@@ -27,3 +27,5 @@ DATABASES = {
         },
     },
 }
+
+INSTALLED_APPS = []
