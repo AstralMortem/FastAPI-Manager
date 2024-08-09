@@ -8,7 +8,7 @@ import pytest
 from fastapi_manager.apps.registry import Apps, apps
 from fastapi_manager.apps import AppConfig
 from fastapi_manager.core.exceptions import ImproperlyConfigured, AppRegistryNotReady
-from utils.lazy import cached_property
+from fastapi_manager.utils.lazy import cached_property
 
 
 def override_settings(test_func):

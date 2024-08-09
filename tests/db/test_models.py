@@ -1,6 +1,6 @@
 import pytest
 from fastapi_manager.conf import settings
-from fastapi_manager.db.models import BaseTable
+from fastapi_manager.db.models import Model
 
 
 @pytest.fixture(autouse=True)
@@ -19,7 +19,7 @@ def set_database_url():
     }
 
 
-class TableForTest(BaseTable):
+class TableForTest(Model):
     pass
 
 

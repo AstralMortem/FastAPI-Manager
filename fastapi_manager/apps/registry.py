@@ -6,7 +6,7 @@ from collections import defaultdict, Counter
 from typing import Dict, TYPE_CHECKING
 from fastapi_manager.core.exceptions import ImproperlyConfigured, AppRegistryNotReady
 from fastapi_manager.apps.config import AppConfig
-from utils.string import is_snake_case, convert_to_snake_case
+from fastapi_manager.utils.string import is_snake_case, convert_to_snake_case
 
 
 class Apps:
