@@ -21,6 +21,8 @@ class StartNewProject(BaseCommand):
         self.project_path = project_path
         self.placeholders = {"{{project_name}}": self.project_name}
 
+        self.destination = self.get_destination()
+
         self.execute()
 
     def get_destination(self):
@@ -35,12 +37,11 @@ class StartNewProject(BaseCommand):
         return path
 
     def copy_folder(self):
-        destination = self.get_destination()
         if not PROJECT_TEMPLATE_DIR.exists():
             raise TemplateDoesNotExists("Project template does not exist")
         for root, dirs, files in PROJECT_TEMPLATE_DIR.walk():
             relative = root.relative_to(PROJECT_TEMPLATE_DIR)
-            dest_dir = destination.joinpath(relative)
+            dest_dir = self.destination.joinpath(relative)
             if dest_dir.name.startswith("{{"):
                 dest_dir = dest_dir.with_name(self.project_name)
 
@@ -54,8 +55,6 @@ class StartNewProject(BaseCommand):
                     dest_file = dest_dir.joinpath(dest_filename)
                     shutil.copy(src_file, dest_file)
                     replace_vars_in_file(self.placeholders, dest_file)
-
-        return destination
 
     def _action(self):
         self.copy_folder()

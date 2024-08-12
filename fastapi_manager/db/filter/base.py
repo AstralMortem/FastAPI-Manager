@@ -2,7 +2,7 @@ from typing import Literal, TypeVar
 from pydantic import BaseModel
 from sqlalchemy import select, delete
 from fastapi_manager.apps import apps
-from fastapi_manager.db.models.base import BaseTable
+from fastapi_manager.db.models.base2 import BaseTable
 import operator
 from fastapi_manager.db import sessionmanager
 from fastapi_manager.utils.async_class import AsyncObject

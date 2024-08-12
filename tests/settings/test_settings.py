@@ -1,31 +1,35 @@
 import pytest
-
-from fastapi_manager.conf import settings, Settings, ENVIRONMENT_VARIABLE
-import os
-
-from fastapi_manager.utils.lazy import LazyObject
+from fastapi_manager.conf import Settings, LocalSettingsHolder
+from contextlib import nullcontext as does_not_raise
 
 
-@pytest.fixture
-def custom_settings():
-    return LazyObject(lambda: Settings("tests.settings.local_conf"))
+def test_settings_init(settings):
+    assert isinstance(settings._wrapped, LocalSettingsHolder)
 
 
-def test_settings_lazy_init(custom_settings):
-    assert custom_settings._wrapped is None
-    assert custom_settings._is_init is False
+def test_insert_values(settings):
+    settings.DEBUG = True
+    settings.INSTALLED_APPS = []
+    settings.MIDLEWARE = []
 
 
-def test_settings_load(custom_settings):
-    assert settings.DEBUG is True
-    assert settings.INSTALLED_APPS == []
+@pytest.mark.parametrize(
+    "key, value, expected",
+    [
+        ("DEBUG", True, does_not_raise()),
+        ("INSTALLED_APPS", [], does_not_raise()),
+        ("MIDLEWARE", [], does_not_raise()),
+        ("NOT_EXISTS", True, pytest.raises(AttributeError)),
+    ],
+)
+def test_settings_functions(key, value, expected, settings):
+    with expected:
+        assert getattr(settings, key) == value
 
 
-def test_custom_settings_loading(custom_settings):
-    custom_settings._load_global_settings()
-    assert custom_settings.DEBUG is False
-    custom_settings._load_local_settings()
-    assert custom_settings.DEBUG == True
+def test_settings_exception(settings):
+    with pytest.raises(AttributeError):
+        assert settings.smth
 
 
 def test_settings_validation():
