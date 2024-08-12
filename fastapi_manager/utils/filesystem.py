@@ -91,6 +91,6 @@ def replace_vars_in_file(vars: dict, file_path: Path | str):
             content = file.read()
             for placeholder, value in vars.items():
                 if placeholder in content:
-                    content = content.replace(placeholder, value)
+                    content = content.replace(placeholder, str(value))
             with open(file_path, "w", encoding="utf-8") as file:
                 file.write(content)
