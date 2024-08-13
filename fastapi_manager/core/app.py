@@ -2,11 +2,13 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, FastAPI
 from fastapi_manager.conf import settings
 import fastapi_manager
+from fastapi_manager.db.connection import register_db
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Project started")
+    register_db(app)
     yield
     print("Project stopped")
 
@@ -32,5 +34,4 @@ class Application:
 def get_app(lifespan=lifespan):
     fastapi_manager.setup()
     application = Application(lifespan)
-
     return application.get_app()

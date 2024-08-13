@@ -41,3 +41,6 @@ class Model(TModel, metaclass=ModelMetaWrapped):
 
     class Meta:
         abstract = True
+
+
+__all__ = ["Model"]

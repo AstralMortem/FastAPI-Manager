@@ -64,7 +64,7 @@ class LazySettings(LazyObject):
 class Settings:
     def __init__(self, settings_module):
         self._explicit_settings = set()
-        self.SETTINGS_MODULE = settings_module
+        self.SETTINGS_MODULE = importlib.import_module(settings_module)
 
         self._load_global_settings()
         self._load_local_settings()

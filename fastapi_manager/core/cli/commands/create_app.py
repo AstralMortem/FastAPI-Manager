@@ -1,3 +1,4 @@
+import importlib
 import shutil
 from pathlib import Path
 
@@ -16,11 +17,10 @@ from fastapi_manager.utils.string import convert_to_camel_case
 class StartNewApp(BaseCommand):
     command_name = "startapp"
 
-    def __init__(self, app_name: Path, settings: str = None):
+    def __init__(self, app_name: str, settings: str = None):
         super().__init__(settings)
         self.app_name = app_name
         self.app_path = conf.BASE_DIR.joinpath(app_name)
-        print(self.app_path)
         self.placeholders = {
             "{{app_name}}": app_name,
             "{{project_name}}": str(conf.BASE_DIR.name),

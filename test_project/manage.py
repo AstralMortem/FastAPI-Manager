@@ -3,7 +3,7 @@ import os
 
 
 def main():
-    os.environ.setdefault("SETTINGS_MODULE", "{{project_name}}.settings")
+    os.environ.setdefault("SETTINGS_MODULE", "test_project.settings")
     try:
         from fastapi_manager.core.cli import cli
     except ImportError as exc:
