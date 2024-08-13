@@ -5,7 +5,6 @@ from .base import BaseCommand
 from fastapi_manager import setup
 
 cli = typer.Typer()
-setup()
 
 
 def get_commands():
