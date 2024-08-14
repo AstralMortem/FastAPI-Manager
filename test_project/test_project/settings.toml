@@ -1,10 +1,10 @@
 [default]
-BASE_DIR = "@format "
+BASE_DIR = "@get PROJECT_DIR"
 INSTALLED_APPS = []
 DATABASES = "postgresql+asyncpg://test:test@localhost:5432/test"
 
 [development]
-DEBUG = True
+DEBUG = true
 
 [production]
-DEBUG = False
+DEBUG = false

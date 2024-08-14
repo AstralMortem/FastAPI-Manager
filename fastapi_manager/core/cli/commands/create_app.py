@@ -20,11 +20,11 @@ class StartNewApp(BaseCommand):
     def __init__(self, app_name: str, settings: str = None):
         super().__init__(settings)
         self.app_name = app_name
-        self.app_path = conf.BASE_DIR.joinpath(app_name)
+        self.app_path = Path(conf.BASE_DIR).joinpath(app_name)
         self.placeholders = {
             "{{app_name}}": app_name,
-            "{{project_name}}": str(conf.BASE_DIR.name),
-            "{{camel_case_app_name}}": convert_to_camel_case(str(app_name)),
+            "{{project_name}}": Path(conf.BASE_DIR).name,
+            "{{camel_case_app_name}}": convert_to_camel_case(str(app_name), True),
         }
         self.execute()
 

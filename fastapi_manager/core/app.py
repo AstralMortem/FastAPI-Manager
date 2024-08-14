@@ -8,7 +8,7 @@ from fastapi_manager.router import url_resolver
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def default_lifespan(app: FastAPI):
     print("Project started")
     # register_db(app)
     yield
@@ -26,7 +26,7 @@ class Application:
             version=settings.PROJECT_API_VERSION,
         )
 
-        self.resolve_urls()
+        # self.resolve_urls()
 
     def get_app(self):
         return self._app
@@ -35,7 +35,7 @@ class Application:
         url_resolver(self._app)
 
 
-def get_app(lifespan=lifespan):
+def get_app(lifespan=default_lifespan):
     fastapi_manager.setup()
     application = Application(lifespan)
     return application.get_app()

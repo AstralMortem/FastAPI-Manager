@@ -2,7 +2,6 @@ import inspect
 import importlib
 import typer
 from .base import BaseCommand
-from fastapi_manager import setup
 
 cli = typer.Typer()
 

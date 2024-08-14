@@ -1,6 +1,8 @@
 import os
 
 from fastapi_manager.utils.string import convert_to_snake_case
+from fastapi_manager.conf import settings
+import fastapi_manager
 
 
 #
@@ -16,7 +18,7 @@ class BaseCommand:
 
     def __init__(self, settings: str | None = None):
         if settings:
-            os.environ.setdefault("SETTINGS_MODULE", settings)
+            os.environ.setdefault("FASTAPI_SETTINGS", settings)
 
     def get_name(self):
         return self.command_name
@@ -29,4 +31,8 @@ class BaseCommand:
         raise NotImplementedError
 
     def execute(self):
+        # populate apps and other settings before execute command
+        if settings.configured:
+            fastapi_manager.setup()
+
         self._action()

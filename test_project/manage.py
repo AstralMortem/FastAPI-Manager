@@ -6,7 +6,7 @@ PROJECT_DIR = Path(__file__).resolve().parent.absolute()
 
 
 def main():
-    os.environ.setdefault("FASTAPI_SETTINGS", "./{{project_name}}/settings.toml")
+    os.environ.setdefault("FASTAPI_SETTINGS", "./test_project/settings.toml")
     os.environ.setdefault("PROJECT_DIR", str(PROJECT_DIR))
     try:
         from fastapi_manager.core.cli import cli
