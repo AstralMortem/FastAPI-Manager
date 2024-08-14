@@ -1,7 +1,8 @@
 [default]
 BASE_DIR = "@get PROJECT_DIR"
-INSTALLED_APPS = []
+INSTALLED_APPS = ["test_app"]
 DATABASES = "postgresql+asyncpg://test:test@localhost:5432/test"
+ROOT_ROUTER = "test_project.router"
 
 [development]
 DEBUG = true

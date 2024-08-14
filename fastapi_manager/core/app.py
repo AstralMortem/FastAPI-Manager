@@ -26,7 +26,7 @@ class Application:
             version=settings.PROJECT_API_VERSION,
         )
 
-        # self.resolve_urls()
+        self.resolve_urls()
 
     def get_app(self):
         return self._app

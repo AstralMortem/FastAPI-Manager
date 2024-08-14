@@ -51,7 +51,7 @@ class Apps:
             self.models_ready = True
 
             for app_config in self.get_app_configs():
-                asyncio.run(app_config.on_ready())
+                app_config.on_ready()
 
             self.ready = True
 
@@ -73,6 +73,10 @@ class Apps:
     def check_models_ready(self):
         if not self.models_ready:
             raise AppRegistryNotReady("Models aren't loaded yet.")
+
+    def is_installed(self, app_name):
+        self.check_apps_ready()
+        return any(ac.name == app_name for ac in self.app_configs.values())
 
 
 apps = Apps()

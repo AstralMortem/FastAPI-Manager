@@ -1,3 +1,8 @@
-from fastapi import APIRouter
+from fastapi_manager.router import BaseRouter
 
-router = APIRouter()
+ENDPOINTS = BaseRouter(prefix="/test-app")
+
+
+@ENDPOINTS.get("")
+def index():
+    return {"message": "Hello World"}

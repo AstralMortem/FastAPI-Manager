@@ -8,10 +8,9 @@ from fastapi_manager.conf import settings
 def url_resolver(app: FastAPI):
     root_router = importlib.import_module(settings.ROOT_ROUTER)
     try:
-        endpoints = getattr(root_router, "endpoints")
+        endpoints = getattr(root_router, "ENDPOINTS")
     except AttributeError:
-        raise AttributeError("You need enpoints list in format endpoints=[...]")
+        raise AttributeError("You need set enpoints list in format ENDPOINTS=[...]")
 
     for endpoint in endpoints:
-        print(endpoint)
-        # app.include_router(endpoint)
+        app.include_router(endpoint)
