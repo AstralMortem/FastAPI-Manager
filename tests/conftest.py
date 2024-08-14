@@ -1,10 +1,18 @@
+from pathlib import Path
+
 import pytest
-from fastapi_manager.conf import LazySettings
-from . import local_settings
+
+import os
+import pprint
+from dynaconf import inspect_settings
 
 
 @pytest.fixture(scope="session", autouse=True)
 def settings():
-    settings = LazySettings()
-    settings.configure(local_settings)
-    return settings
+    os.environ.setdefault("FASTAPI_SETTINGS", "./local_settings.toml")
+    from fastapi_manager.conf import settings as conf
+
+    os.environ.setdefault(
+        "FASTAPI_PROJECT_DIR", str(Path("local_settings.toml").parent.absolute())
+    )
+    return conf

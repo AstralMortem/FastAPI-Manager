@@ -1,5 +1,0 @@
-from pathlib import Path
-
-BASE_DIR = Path(__file__).parent.parent
-INSTALLED_APPS = []
-DATABASES = "postgresql+asyncpg://test:test@localhost:5432/test"

@@ -1,10 +1,6 @@
 import pytest
-from fastapi_manager.conf import Settings, LocalSettingsHolder
+
 from contextlib import nullcontext as does_not_raise
-
-
-def test_settings_init(settings):
-    assert isinstance(settings._wrapped, LocalSettingsHolder)
 
 
 def test_insert_values(settings):
@@ -30,9 +26,3 @@ def test_settings_functions(key, value, expected, settings):
 def test_settings_exception(settings):
     with pytest.raises(AttributeError):
         assert settings.smth
-
-
-def test_settings_validation():
-    with pytest.raises(Exception):
-        Settings._validate_special_settings("INSTALLED_APPS", "TEST")
-    assert Settings._validate_special_settings("ALLOWED_HOSTS", ["TEST"]) is None

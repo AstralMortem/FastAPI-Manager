@@ -1,9 +1,11 @@
 #!/usr/bin/env python
+from pathlib import Path
 import os
 
 
 def main():
-    os.environ.setdefault("SETTINGS_MODULE", "{{project_name}}.settings")
+    os.environ.setdefault("FASTAPI_SETTINGS", "./{{project_name}}/settings.yaml")
+    os.environ.setdefault("PROJECT_DIR", str(Path("{{project_name}}").absolute()))
     try:
         from fastapi_manager.core.cli import cli
     except ImportError as exc:
