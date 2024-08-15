@@ -1,10 +1,14 @@
 [default]
 BASE_DIR = "@get PROJECT_DIR"
 INSTALLED_APPS = []
-DATABASES = "postgresql+asyncpg://test:test@localhost:5432/test"
 
 [development]
 DEBUG = true
+    [development.DATABASES.default]
+    engine = "tortoise.backends.sqliter"
+        [development.DATABASES.default.credentials]
+        file_path = "{this.BASE_DIR}/{test_db.sqlite3}"
 
 [production]
 DEBUG = false
+DATABASES = "postgres+asyncpg://localhost/postgres"

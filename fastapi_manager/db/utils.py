@@ -1,46 +1,49 @@
-from pydantic import BaseModel, ValidationError
-from fastapi_manager.utils.module_loading import import_string
+from importlib.util import find_spec
+from tortoise.contrib.fastapi import register_tortoise
+from fastapi import FastAPI
 
 
-class DatabaseError(Exception):
-    def __init__(self, message):
-        super().__init__(message)
+def validate_database_engine(backend: str | None):
+    if backend is None:
+        raise Exception("You need to set engine value")
+    find_spec(backend)
 
 
-class EngineDoesNotExist(DatabaseError):
-    pass
+def validate_database(settings_module):
+    string = settings_module.DATABASES
+    connection_dict = {}
+
+    for key, val in string.items():
+        if isinstance(val, dict):
+            validate_database_engine(val.get("engine", None))
+            connection_dict[key] = dict(val)
+        if isinstance(val, str):
+            connection_dict[key] = val
+
+    return connection_dict
 
 
-class DatabaseNotInSettings(DatabaseError):
-    pass
+def get_apps(settings_module):
+    apps_dict = {}
+    from fastapi_manager.apps import apps
+
+    for app in apps.get_app_configs():
+        apps_dict[app.label] = {
+            "models": [app.models_module],
+            "default_connections": settings_module.DEFAULT_DB_CONNECTION,
+        }
+
+    return apps_dict
 
 
-class IncorrectDatabaseSetting(DatabaseError):
-    pass
+def create_db_config(settings_module):
+    return {
+        "connections": validate_database(settings_module),
+        "apps": get_apps(settings_module),
+    }
 
 
-class DatabaseManagerError(DatabaseError):
-    pass
-
-
-def get_engine(engine_module) -> type[BaseModel]:
-    try:
-        return import_string(engine_module)
-    except Exception as e:
-        raise EngineDoesNotExist(e.args[0])
-
-
-def validate_database(settings_module, key="default"):
-    try:
-        databases: dict = getattr(settings_module, "DATABASES")
-        engine_path, options = databases[key].values()
-
-        engine = get_engine(engine_path)
-        database = engine.model_validate(options)
-
-        return database.get_dsn
-
-    except AttributeError as e:
-        raise DatabaseNotInSettings(e)
-    except ValidationError as e:
-        raise IncorrectDatabaseSetting(e)
+def register_to_fastapi(settings_module, app: FastAPI, *args, **kwargs):
+    register_tortoise(
+        app=app, config=create_db_config(settings_module), *args, **kwargs
+    )

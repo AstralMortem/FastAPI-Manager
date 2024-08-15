@@ -50,6 +50,6 @@ def test_project_copy_folder():
     for dest in command.destination.iterdir():
         assert dest.name in dir_1
 
-    dir_2 = ["__init__.py", "asgi.py", "routers.py", "settings.py"]
+    dir_2 = ["__init__.py", "asgi.py", "router.py", "settings.toml"]
     for dest in command.destination.joinpath("test_project").iterdir():
         assert dest.name in dir_2

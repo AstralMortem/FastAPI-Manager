@@ -1,6 +1,20 @@
 [default]
-BASE_DIR = "@get PROJECT_DIR"
+#BASE_DIR = "@format {this.SETTINGS.rsplit('/')[0]}"
 MIDLEWARE = []
 
 [development]
 DEBUG = true
+
+[development.DATABASES]
+dsn = "sqlite://:memory"
+
+    [development.DATABASES.default]
+    engine = "tortoise.backends.asyncpg"
+
+        [development.DATABASES.default.credentials]
+        host="localhsot"
+        port=5432
+        user='user'
+        password='password'
+        database='db'
+
