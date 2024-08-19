@@ -26,3 +26,9 @@ def test_settings_functions(key, value, expected, settings):
 def test_settings_exception(settings):
     with pytest.raises(AttributeError):
         assert settings.smth
+
+
+def test_settings_path_converor(settings):
+    from pathlib import Path
+
+    assert isinstance(settings.BASE_DIR, Path)

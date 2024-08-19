@@ -1,13 +1,15 @@
 import os
 
-from dynaconf import LazySettings
+import dynaconf
+from dynaconf import Dynaconf
 from pathlib import Path
 
 GLOBAL_SETTINGS_PATH = Path(__file__).parent.joinpath("global_settings.py").absolute()
 SETTINGS_ENVIRON = "FASTAPI_SETTINGS"
-print(os.environ.get(SETTINGS_ENVIRON))
 
-settings = LazySettings(
+dynaconf.utils.parse_conf.converters["@path"] = lambda x: Path(x).absolute()
+
+settings = Dynaconf(
     environments=True,
     load_dotenv=True,
     settings_files=[

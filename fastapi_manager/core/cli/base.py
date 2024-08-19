@@ -1,7 +1,6 @@
 import os
 
 from fastapi_manager.utils.string import convert_to_snake_case
-from fastapi_manager.conf import settings
 import fastapi_manager
 
 
@@ -14,6 +13,7 @@ class BaseCommand:
         new_class = super().__new__(cls)
         if cls.command_name is None:
             new_class.command_name = convert_to_snake_case(cls.__name__)
+        fastapi_manager.setup()
         return new_class
 
     def __init__(self, settings: str | None = None):
@@ -32,7 +32,6 @@ class BaseCommand:
 
     def execute(self):
         # populate apps and other settings before execute command
-        if settings.configured:
-            fastapi_manager.setup()
+        # if settings.configured:
 
         self._action()

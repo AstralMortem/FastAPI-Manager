@@ -1,5 +1,5 @@
 [default]
-BASE_DIR = "@get PROJECT_DIR"
+BASE_DIR = "@get PROJECT_DIR @path"
 INSTALLED_APPS = []
 
 [development]

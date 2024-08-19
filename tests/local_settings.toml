@@ -1,5 +1,5 @@
 [default]
-#BASE_DIR = "@format {this.SETTINGS.rsplit('/')[0]}"
+BASE_DIR = "@get PROJECT_DIR @path"
 MIDLEWARE = []
 
 [development]

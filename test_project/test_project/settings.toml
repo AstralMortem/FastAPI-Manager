@@ -1,0 +1,11 @@
+[default]
+BASE_DIR = "@get PROJECT_DIR @path"
+INSTALLED_APPS = ["test_app1", "test_app2"]
+
+[development]
+DEBUG = true
+DATABASES = {default ="postgres://test_user:test_password@localhost/postgres"}
+
+[production]
+DEBUG = false
+DATABASES = "postgres+asyncpg://localhost/postgres"
