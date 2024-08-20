@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from aerich import Command
+
+from fastapi_manager.db.aerich import Command
 from tortoise import run_async
 
 from fastapi_manager.conf import settings
@@ -17,33 +18,17 @@ class MigrationBaseCommand(BaseCommand):
 
         # setup migraions command
         self.app_name = app_name
-        self.aerich: list[Command] | Command = []
+
         self.migration_folder = Path(settings.BASE_DIR).joinpath("migrations")
         self.config = create_db_config(settings)
-
-        # get apps
-        self.get_aerich_command()
+        default_app = list(self.config.get("apps").keys())[0]
+        self.aerich = Command(
+            self.config, app_name, str(self.migration_folder), default_app
+        )
 
         self.execute()
 
-    def get_aerich_command(self):
-        migration_folder = str(self.migration_folder)
-        if self.app_name is not None:
-            self.aerich = Command(self.config, self.app_name, migration_folder)
-        else:
-            aerich_list = []
-            for config in apps.get_app_configs():
-                aerich_list.append(Command(self.config, config.label, migration_folder))
-            self.aerich = aerich_list
-
     async def async_action(self):
-        if isinstance(self.aerich, list):
-            for command in self.aerich:
-                await self.migration_task(command)
-        else:
-            await self.migration_task(self.aerich)
-
-    async def migration_task(self, command):
         raise NotImplemented
 
     def _action(self):
@@ -59,17 +44,10 @@ class MakeMigrations(MigrationBaseCommand):
         self.message = message
         super().__init__(app_name, setting_file)
 
-    # def is_init(self, app_name):
-    #     try:
-    #         PathChecker(str(MIGRATIONS_FOLDER.joinpath(app_name))).is_not_exists()
-    #         return True
-    #     except Exception:
-    #         return False
-
-    async def migration_task(self, command):
-        await command.init()
-        await command.init_db(True)
-        await command.migrate(self.message)
+    async def async_action(self):
+        await self.aerich.init()
+        await self.aerich.init_db(True)
+        await self.aerich.migrate(self.message)
 
 
 # class Migrate(BaseCommand):

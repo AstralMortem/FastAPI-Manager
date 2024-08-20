@@ -34,7 +34,7 @@ def get_apps(settings_module):
         }
 
     apps_dict["migrations"] = {
-        "models": ["aerich.models"],
+        "models": ["fastapi_manager.db.aerich.models"],
         "default_connections": settings_module.DEFAULT_DB_CONNECTION,
     }
 
