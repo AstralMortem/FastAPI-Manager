@@ -1,6 +1,7 @@
-def setup():
+import pprint
 
-    # init lazy settings
+
+def setup():
     from fastapi_manager.conf import settings
     from fastapi_manager.apps import apps
 
